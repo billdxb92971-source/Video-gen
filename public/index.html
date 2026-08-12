@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Product Video Generator</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --panel: #121829;
+    --accent: #7c5cff;
+    --accent2: #2dd4bf;
+    --text: #eef1f8;
+    --muted: #94a0b8;
+    --border: #232b41;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    background: radial-gradient(circle at top, #151c30, var(--bg));
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 {
+    font-size: 24px;
+    margin: 0 0 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  p.sub { color: var(--muted); margin: 0 0 28px; font-size: 14px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  textarea, select, input[type=text] {
+    width: 100%;
+    background: #0d1220;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  textarea { min-height: 100px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 18px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #08101f;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .progress-track {
+    height: 8px;
+    background: #0d1220;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.4s ease;
+  }
+  video { width: 100%; border-radius: 12px; margin-top: 16px; border: 1px solid var(--border); }
+  .script-preview { font-size: 13px; color: var(--muted); margin-top: 16px; white-space: pre-wrap; line-height: 1.5; }
+  .scene { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .scene:last-child { border-bottom: none; }
+  .scene b { color: var(--text); }
+  a.download { display: inline-block; margin-top: 12px; color: var(--accent2); font-size: 13px; text-decoration: none; }
+  .logo-drop {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    background: #0d1220;
+  }
+  .logo-drop:hover { border-color: var(--accent); }
+  .logo-drop img { width: 44px; height: 44px; object-fit: contain; border-radius: 6px; background: #fff1; }
+  .logo-drop .placeholder {
+    width: 44px; height: 44px; border-radius: 6px;
+    background: #1a2136; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 18px;
+  }
+  .logo-drop .drop-text { font-size: 13px; color: var(--muted); }
+  .logo-drop .drop-text b { color: var(--text); }
+  .remove-logo { font-size: 12px; color: #ff8080; margin-left: auto; cursor: pointer; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .tab-btn.active { background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #08101f; border-color: transparent; }
+  .video-drop {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    cursor: pointer;
+    background: #0d1220;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .video-drop:hover { border-color: var(--accent); }
+  .video-drop b { color: var(--text); }
+  .plan-summary {
+    background: #0d1220; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; font-size: 13px; color: var(--text); margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI Product Video Generator</h1>
+  <p class="sub">Prompt → script → AI-generated video scenes with native voice → stitched final ad.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabGenerateBtn">Generate new video</button>
+    <button class="tab-btn" id="tabEditBtn">Edit existing video</button>
+  </div>
+
+  <div id="tabGenerate">
+  <div class="panel">
+    <label for="prompt">Describe the product &amp; the video you want</label>
+    <textarea id="prompt" placeholder="e.g. 30 second ad for a dental lab SaaS called ClearPro Lab. Show a busy dental lab, a technician using the AI voice assistant Aria, then a case getting approved instantly. End with the ClearPro Lab logo and tagline 'Faster cases, happier dentists.'"></textarea>
+
+    <label for="provider">Video model</label>
+    <select id="provider"></select>
+
+    <div id="heygenPickers" style="display:none;">
+      <label for="avatarSelect">Avatar</label>
+      <select id="avatarSelect"></select>
+
+      <label for="voiceSelect">Voice</label>
+      <select id="voiceSelect"></select>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Real avatar lip-sync via your HeyGen account. Scenes without a spoken line are skipped — HeyGen needs text to sync to.</div>
+    </div>
+
+    <div id="falAvatarPicker" style="display:none;">
+      <label for="avatarFaceInput">Your avatar (photo or short video)</label>
+      <div class="logo-drop" id="avatarFaceDrop">
+        <div class="placeholder" id="avatarFacePlaceholder">🧑</div>
+        <img id="avatarFacePreview" style="display:none;" />
+        <div class="drop-text" id="avatarFaceDropText"><b>Tap to upload</b> — a clear face photo or a few seconds of video works best</div>
+        <span class="remove-logo" id="removeAvatarFace" style="display:none;">Remove</span>
+      </div>
+      <input type="file" id="avatarFaceInput" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime" style="display:none;" />
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Uses only your FAL_KEY — text-to-speech reads the script, then lip-syncs it to this face. Scenes without a spoken line are skipped.</div>
+    </div>
+
+    <label for="scriptProvider">Script writer</label>
+    <select id="scriptProvider"></select>
+
+    <div class="row">
+      <div>
+        <label for="scenes">Number of scenes (8s each)</label>
+        <select id="scenes">
+          <option value="2">2 (~16s)</option>
+          <option value="3" selected>3 (~24s)</option>
+          <option value="4">4 (~32s)</option>
+          <option value="5">5 (~40s)</option>
+          <option value="6">6 (~48s)</option>
+          <option value="8">8 (~64s)</option>
+          <option value="10">10 (~80s)</option>
+          <option value="12">12 (~96s)</option>
+          <option value="15">15 (~2 min)</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Longer videos take proportionally longer to generate and cost more — roughly $0.15–0.25 per scene on Seedance.</div>
+      </div>
+      <div>
+        <label for="aspect">Aspect ratio</label>
+        <select id="aspect">
+          <option value="16:9" selected>16:9 (YouTube/web)</option>
+          <option value="9:16">9:16 (Reels/TikTok)</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="tone">Tone</label>
+    <input type="text" id="tone" value="energetic and modern" />
+
+    <label for="style">Visual style</label>
+    <input type="text" id="style" value="clean cinematic product-ad style, soft studio lighting, shallow depth of field" />
+
+    <label for="logoInput">Brand logo (optional)</label>
+    <div class="logo-drop" id="logoDrop">
+      <div class="placeholder" id="logoPlaceholder">🖼️</div>
+      <img id="logoPreview" style="display:none;" />
+      <div class="drop-text" id="logoDropText"><b>Tap to upload</b> — PNG/JPG/WEBP, added as a watermark + branded end card</div>
+      <span class="remove-logo" id="removeLogo" style="display:none;">Remove</span>
+    </div>
+    <input type="file" id="logoInput" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+
+    <label for="tagline">Tagline for end card (optional)</label>
+    <input type="text" id="tagline" placeholder="e.g. Faster cases, happier dentists." />
+
+    <button id="generateBtn">Generate Video</button>
+    <div class="status" id="statusText"></div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <video id="resultVideo" controls></video>
+    <a class="download" id="downloadLink" download>Download final.mp4</a>
+    <div class="script-preview" id="scriptPreview"></div>
+  </div>
+  </div>
+
+  <div id="tabEdit" style="display:none;">
+    <div class="panel">
+      <label for="videoInput">Video to edit</label>
+      <div class="video-drop" id="videoDrop">
+        <div id="videoDropText">🎬 <b>Tap to upload</b> a video (MP4/MOV/WEBM/MKV)</div>
+      </div>
+      <input type="file" id="videoInput" accept="video/mp4,video/quicktime,video/webm,video/x-matroska" style="display:none;" />
+      <video id="sourcePreview" controls style="display:none; margin-top:12px;"></video>
+
+      <label for="instructions">What changes do you want?</label>
+      <textarea id="instructions" placeholder="e.g. Trim to the first 15 seconds, convert to vertical 9:16 for Reels, add a caption saying 'New: AI Voice Assistant' at the start, mute the original audio, and fade in."></textarea>
+
+      <label for="editScriptProvider">Interpret request using</label>
+      <select id="editScriptProvider"></select>
+
+      <label for="editLogoInput">Brand logo (optional)</label>
+      <div class="logo-drop" id="editLogoDrop">
+        <div class="placeholder" id="editLogoPlaceholder">🖼️</div>
+        <img id="editLogoPreview" style="display:none;" />
+        <div class="drop-text" id="editLogoDropText"><b>Tap to upload</b> — PNG/JPG/WEBP, added as a watermark + branded end card</div>
+        <span class="remove-logo" id="editRemoveLogo" style="display:none;">Remove</span>
+      </div>
+      <input type="file" id="editLogoInput" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+
+      <label for="editTagline">Tagline for end card (optional)</label>
+      <input type="text" id="editTagline" placeholder="e.g. Faster cases, happier dentists." />
+
+      <button id="editBtn">Apply Edits</button>
+      <div class="status" id="editStatusText"></div>
+      <div class="progress-track"><div class="progress-fill" id="editProgressFill"></div></div>
+    </div>
+
+    <div class="panel" id="editResultPanel" style="display:none;">
+      <video id="editResultVideo" controls></video>
+      <a class="download" id="editDownloadLink" download>Download edited.mp4</a>
+      <div class="plan-summary" id="planSummary"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const btn = document.getElementById("generateBtn");
+const statusText = document.getElementById("statusText");
+const progressFill = document.getElementById("progressFill");
+const resultPanel = document.getElementById("resultPanel");
+const resultVideo = document.getElementById("resultVideo");
+const downloadLink = document.getElementById("downloadLink");
+const scriptPreview = document.getElementById("scriptPreview");
+const providerSelect = document.getElementById("provider");
+const scriptProviderSelect = document.getElementById("scriptProvider");
+const heygenPickers = document.getElementById("heygenPickers");
+const avatarSelect = document.getElementById("avatarSelect");
+const voiceSelect = document.getElementById("voiceSelect");
+const logoInput = document.getElementById("logoInput");
+const logoDrop = document.getElementById("logoDrop");
+const logoPreview = document.getElementById("logoPreview");
+const logoPlaceholder = document.getElementById("logoPlaceholder");
+const logoDropText = document.getElementById("logoDropText");
+const removeLogo = document.getElementById("removeLogo");
+
+let selectedLogoFile = null;
+
+logoDrop.addEventListener("click", (e) => {
+  if (e.target === removeLogo) return;
+  logoInput.click();
+});
+
+logoInput.addEventListener("change", () => {
+  const file = logoInput.files[0];
+  if (!file) return;
+  selectedLogoFile = file;
+  const url = URL.createObjectURL(file);
+  logoPreview.src = url;
+  logoPreview.style.display = "block";
+  logoPlaceholder.style.display = "none";
+  logoDropText.innerHTML = `<b>${file.name}</b> selected`;
+  removeLogo.style.display = "inline";
+});
+
+removeLogo.addEventListener("click", (e) => {
+  e.stopPropagation();
+  selectedLogoFile = null;
+  logoInput.value = "";
+  logoPreview.style.display = "none";
+  logoPlaceholder.style.display = "flex";
+  logoDropText.innerHTML = "<b>Tap to upload</b> — PNG/JPG/WEBP, added as a watermark + branded end card";
+  removeLogo.style.display = "none";
+});
+
+const falAvatarPicker = document.getElementById("falAvatarPicker");
+const avatarFaceInput = document.getElementById("avatarFaceInput");
+const avatarFaceDrop = document.getElementById("avatarFaceDrop");
+const avatarFacePreview = document.getElementById("avatarFacePreview");
+const avatarFacePlaceholder = document.getElementById("avatarFacePlaceholder");
+const avatarFaceDropText = document.getElementById("avatarFaceDropText");
+const removeAvatarFace = document.getElementById("removeAvatarFace");
+
+let selectedAvatarFaceFile = null;
+
+avatarFaceDrop.addEventListener("click", (e) => {
+  if (e.target === removeAvatarFace) return;
+  avatarFaceInput.click();
+});
+avatarFaceInput.addEventListener("change", () => {
+  const file = avatarFaceInput.files[0];
+  if (!file) return;
+  selectedAvatarFaceFile = file;
+  avatarFacePlaceholder.style.display = "none";
+  removeAvatarFace.style.display = "inline";
+  if (file.type.startsWith("image/")) {
+    const url = URL.createObjectURL(file);
+    avatarFacePreview.src = url;
+    avatarFacePreview.style.display = "block";
+  } else {
+    avatarFacePreview.style.display = "none";
+  }
+  avatarFaceDropText.innerHTML = `<b>${file.name}</b> selected`;
+});
+removeAvatarFace.addEventListener("click", (e) => {
+  e.stopPropagation();
+  selectedAvatarFaceFile = null;
+  avatarFaceInput.value = "";
+  avatarFacePreview.style.display = "none";
+  avatarFacePlaceholder.style.display = "flex";
+  avatarFaceDropText.innerHTML = "<b>Tap to upload</b> — a clear face photo or a few seconds of video works best";
+  removeAvatarFace.style.display = "none";
+});
+
+(async () => {
+  const { video, script } = await fetch("/api/providers").then((r) => r.json());
+
+  providerSelect.innerHTML = video.map((p) => `<option value="${p.id}">${p.label}</option>`).join("");
+  const seedance = video.find((p) => p.id === "seedance");
+  if (seedance) providerSelect.value = "seedance";
+
+  scriptProviderSelect.innerHTML = script.map((p) => `<option value="${p.id}">${p.label}</option>`).join("");
+  const falLlm = script.find((p) => p.id === "fal-llm");
+  if (falLlm) scriptProviderSelect.value = "fal-llm";
+
+  toggleHeygenPickers();
+})();
+
+let heygenDataLoaded = false;
+async function toggleHeygenPickers() {
+  const isHeygen = providerSelect.value === "heygen";
+  const isFalAvatar = providerSelect.value === "fal-avatar";
+  heygenPickers.style.display = isHeygen ? "block" : "none";
+  falAvatarPicker.style.display = isFalAvatar ? "block" : "none";
+  if (isHeygen && !heygenDataLoaded) {
+    heygenDataLoaded = true;
+    try {
+      const [avatars, voices] = await Promise.all([
+        fetch("/api/heygen/avatars").then((r) => r.json()),
+        fetch("/api/heygen/voices").then((r) => r.json()),
+      ]);
+      if (Array.isArray(avatars) && avatars.length) {
+        avatarSelect.innerHTML = avatars.map((a) => `<option value="${a.id}">${a.name}</option>`).join("");
+      } else {
+        avatarSelect.innerHTML = `<option value="">No avatars found on this HeyGen account</option>`;
+      }
+      if (Array.isArray(voices) && voices.length) {
+        voiceSelect.innerHTML = voices.map((v) => `<option value="${v.id}">${v.name}${v.language ? " (" + v.language + ")" : ""}</option>`).join("");
+      } else {
+        voiceSelect.innerHTML = `<option value="">No voices found on this HeyGen account</option>`;
+      }
+    } catch (e) {
+      avatarSelect.innerHTML = `<option value="">Failed to load avatars</option>`;
+      voiceSelect.innerHTML = `<option value="">Failed to load voices</option>`;
+    }
+  }
+}
+providerSelect.addEventListener("change", toggleHeygenPickers);
+
+btn.addEventListener("click", async () => {
+  const prompt = document.getElementById("prompt").value.trim();
+  if (!prompt) { alert("Describe the video you want first."); return; }
+  if (providerSelect.value === "fal-avatar" && !selectedAvatarFaceFile) {
+    alert("Upload an avatar photo or short video first.");
+    return;
+  }
+
+  btn.disabled = true;
+  resultPanel.style.display = "none";
+  statusText.textContent = "Starting…";
+  progressFill.style.width = "2%";
+
+  const formData = new FormData();
+  formData.append("prompt", prompt);
+  formData.append("sceneCount", document.getElementById("scenes").value);
+  formData.append("aspectRatio", document.getElementById("aspect").value);
+  formData.append("tone", document.getElementById("tone").value);
+  formData.append("style", document.getElementById("style").value);
+  formData.append("provider", providerSelect.value);
+  formData.append("scriptProvider", scriptProviderSelect.value);
+  formData.append("tagline", document.getElementById("tagline").value);
+  if (providerSelect.value === "heygen") {
+    formData.append("avatarId", avatarSelect.value);
+    formData.append("voiceId", voiceSelect.value);
+  }
+  if (providerSelect.value === "fal-avatar" && selectedAvatarFaceFile) {
+    formData.append("avatar", selectedAvatarFaceFile);
+  }
+  if (selectedLogoFile) formData.append("logo", selectedLogoFile);
+
+  try {
+    const startRes = await fetch("/api/generate", {
+      method: "POST",
+      body: formData,
+    });
+    const { jobId, error } = await startRes.json();
+    if (error) throw new Error(error);
+
+    const poll = setInterval(async () => {
+      const statusRes = await fetch(`/api/status/${jobId}`);
+      const job = await statusRes.json();
+
+      progressFill.style.width = (job.progress || 0) + "%";
+      statusText.textContent = humanizeStatus(job.status);
+
+      if (job.status === "done") {
+        clearInterval(poll);
+        btn.disabled = false;
+        resultPanel.style.display = "block";
+        resultVideo.src = job.videoUrl;
+        downloadLink.href = job.videoUrl;
+        scriptPreview.innerHTML = renderScript(job.script);
+      } else if (job.status === "error") {
+        clearInterval(poll);
+        btn.disabled = false;
+        statusText.textContent = "Error: " + job.error;
+      }
+    }, 4000);
+  } catch (e) {
+    btn.disabled = false;
+    statusText.textContent = "Error: " + e.message;
+  }
+});
+
+function humanizeStatus(s) {
+  if (!s) return "";
+  if (s === "writing_script") return "Writing marketing script…";
+  if (s === "generating_scenes") return "Generating scenes…";
+  if (s.startsWith("generating_scene_")) {
+    const [, idx, , total] = s.split("_");
+    return `Generating scene ${idx} of ${total}…`;
+  }
+  if (s === "generating_avatar_video") return "Generating avatar video (HeyGen)…";
+  if (s === "stitching") return "Stitching final video…";
+  if (s === "branding") return "Adding your logo & end card…";
+  if (s === "analyzing_video") return "Analyzing uploaded video…";
+  if (s === "planning_edits") return "Working out the edit plan…";
+  if (s === "applying_edits") return "Applying edits…";
+  if (s === "done") return "Done!";
+  return s;
+}
+
+function renderScript(script) {
+  if (!script) return "";
+  let html = `<b>${script.title || "Script"}</b><br/><br/>`;
+  for (const s of script.scenes) {
+    html += `<div class="scene"><b>Scene ${s.index}:</b> ${s.visual_description}<br/>${s.dialogue_or_vo ? '"' + s.dialogue_or_vo + '"' : "(no dialogue)"}</div>`;
+  }
+  return html;
+}
+
+/* ------------------------- Tab switching ------------------------- */
+const tabGenerateBtn = document.getElementById("tabGenerateBtn");
+const tabEditBtn = document.getElementById("tabEditBtn");
+const tabGenerate = document.getElementById("tabGenerate");
+const tabEdit = document.getElementById("tabEdit");
+
+tabGenerateBtn.addEventListener("click", () => {
+  tabGenerateBtn.classList.add("active");
+  tabEditBtn.classList.remove("active");
+  tabGenerate.style.display = "block";
+  tabEdit.style.display = "none";
+});
+tabEditBtn.addEventListener("click", () => {
+  tabEditBtn.classList.add("active");
+  tabGenerateBtn.classList.remove("active");
+  tabEdit.style.display = "block";
+  tabGenerate.style.display = "none";
+});
+
+/* ------------------------- Edit-existing-video tab ------------------------- */
+const videoInput = document.getElementById("videoInput");
+const videoDrop = document.getElementById("videoDrop");
+const videoDropText = document.getElementById("videoDropText");
+const sourcePreview = document.getElementById("sourcePreview");
+const instructionsInput = document.getElementById("instructions");
+const editScriptProviderSelect = document.getElementById("editScriptProvider");
+const editTaglineInput = document.getElementById("editTagline");
+const editBtn = document.getElementById("editBtn");
+const editStatusText = document.getElementById("editStatusText");
+const editProgressFill = document.getElementById("editProgressFill");
+const editResultPanel = document.getElementById("editResultPanel");
+const editResultVideo = document.getElementById("editResultVideo");
+const editDownloadLink = document.getElementById("editDownloadLink");
+const planSummary = document.getElementById("planSummary");
+
+const editLogoInput = document.getElementById("editLogoInput");
+const editLogoDrop = document.getElementById("editLogoDrop");
+const editLogoPreview = document.getElementById("editLogoPreview");
+const editLogoPlaceholder = document.getElementById("editLogoPlaceholder");
+const editLogoDropText = document.getElementById("editLogoDropText");
+const editRemoveLogo = document.getElementById("editRemoveLogo");
+
+let selectedVideoFile = null;
+let selectedEditLogoFile = null;
+
+videoDrop.addEventListener("click", () => videoInput.click());
+videoInput.addEventListener("change", () => {
+  const file = videoInput.files[0];
+  if (!file) return;
+  selectedVideoFile = file;
+  const url = URL.createObjectURL(file);
+  sourcePreview.src = url;
+  sourcePreview.style.display = "block";
+  videoDropText.innerHTML = `🎬 <b>${file.name}</b> selected — tap to change`;
+});
+
+editLogoDrop.addEventListener("click", (e) => {
+  if (e.target === editRemoveLogo) return;
+  editLogoInput.click();
+});
+editLogoInput.addEventListener("change", () => {
+  const file = editLogoInput.files[0];
+  if (!file) return;
+  selectedEditLogoFile = file;
+  const url = URL.createObjectURL(file);
+  editLogoPreview.src = url;
+  editLogoPreview.style.display = "block";
+  editLogoPlaceholder.style.display = "none";
+  editLogoDropText.innerHTML = `<b>${file.name}</b> selected`;
+  editRemoveLogo.style.display = "inline";
+});
+editRemoveLogo.addEventListener("click", (e) => {
+  e.stopPropagation();
+  selectedEditLogoFile = null;
+  editLogoInput.value = "";
+  editLogoPreview.style.display = "none";
+  editLogoPlaceholder.style.display = "flex";
+  editLogoDropText.innerHTML = "<b>Tap to upload</b> — PNG/JPG/WEBP, added as a watermark + branded end card";
+  editRemoveLogo.style.display = "none";
+});
+
+(async () => {
+  const { script } = await fetch("/api/providers").then((r) => r.json());
+  editScriptProviderSelect.innerHTML = script.map((p) => `<option value="${p.id}">${p.label}</option>`).join("");
+  const falLlm = script.find((p) => p.id === "fal-llm");
+  if (falLlm) editScriptProviderSelect.value = "fal-llm";
+})();
+
+editBtn.addEventListener("click", async () => {
+  if (!selectedVideoFile) { alert("Upload a video to edit first."); return; }
+  const instructions = instructionsInput.value.trim();
+  if (!instructions) { alert("Describe what changes you want made."); return; }
+
+  editBtn.disabled = true;
+  editResultPanel.style.display = "none";
+  editStatusText.textContent = "Uploading…";
+  editProgressFill.style.width = "2%";
+
+  const formData = new FormData();
+  formData.append("video", selectedVideoFile);
+  formData.append("instructions", instructions);
+  formData.append("scriptProvider", editScriptProviderSelect.value);
+  formData.append("tagline", editTaglineInput.value);
+  if (selectedEditLogoFile) formData.append("logo", selectedEditLogoFile);
+
+  try {
+    const startRes = await fetch("/api/edit-video", { method: "POST", body: formData });
+    const { jobId, error } = await startRes.json();
+    if (error) throw new Error(error);
+
+    const poll = setInterval(async () => {
+      const statusRes = await fetch(`/api/status/${jobId}`);
+      const job = await statusRes.json();
+
+      editProgressFill.style.width = (job.progress || 0) + "%";
+      editStatusText.textContent = humanizeStatus(job.status);
+
+      if (job.status === "done") {
+        clearInterval(poll);
+        editBtn.disabled = false;
+        editResultPanel.style.display = "block";
+        editResultVideo.src = job.videoUrl;
+        editDownloadLink.href = job.videoUrl;
+        planSummary.innerHTML = job.plan?.summary ? `<b>What changed:</b> ${job.plan.summary}` : "";
+      } else if (job.status === "error") {
+        clearInterval(poll);
+        editBtn.disabled = false;
+        editStatusText.textContent = "Error: " + job.error;
+      }
+    }, 4000);
+  } catch (e) {
+    editBtn.disabled = false;
+    editStatusText.textContent = "Error: " + e.message;
+  }
+});
+
+</script>
+</body>
+</html>
